@@ -33,17 +33,17 @@ export default function JobRecommendations({ jobs }) {
                 <span className="text-sm font-bold text-green-600 bg-green-100 px-2 py-1 rounded-md">{job.matchScore}% Match</span>
               </div>
             </div>
-            
+
             <p className="text-sm text-slate-600 mt-3 line-clamp-2">{job.description}</p>
-            
+
             <div className="mt-5 flex gap-3">
-              <button 
+              <button
                 onClick={() => handleApply(job._id, job.matchScore)}
                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-sm font-medium transition-colors"
               >
                 <CheckCircle className="w-4 h-4" /> 1-Click Apply
               </button>
-              <button 
+              <button
                 onClick={() => {
                   if (job.link && job.link !== '#') {
                     window.open(job.link, '_blank', 'noreferrer');
