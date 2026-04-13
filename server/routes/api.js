@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import axios from 'axios';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import { parseResume } from '../utils/parseResume.js';
 import { analyzeResumeMatch, suggestKeywords } from '../utils/aiHelper.js';
 import Job from '../models/Job.js';
@@ -64,37 +64,70 @@ router.post('/jobs/recommend', async (req, res) => {
     let jobs = [];
     
     if (process.env.RAPIDAPI_KEY) {
-      // Phase 1: Rapidly extract the user's job title using Gemini to use as the search query
+      // Phase 1: Rapidly extract the user's job title using Groq to use as the search query
       let searchQuery = "Software Engineer"; 
-      if (process.env.GEMINI_API_KEY) {
+      if (process.env.GROQ_API_KEY) {
         try {
-          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-          const result = await model.generateContent(`Extract the single most dominant job title (max 2 words) this candidate currently holds or is applying for based on this resume. Output NOTHING else. Resume snippet: ${resumeText.substring(0, 1000)}`);
-          searchQuery = result.response.text().trim() || "Software Engineer";
-        } catch(e) {}
+          const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+          const result = await groq.chat.completions.create({
+            messages: [{ role: 'user', content: `Extract the single most dominant job title (max 2 words) this candidate currently holds or is applying for based on this resume. Output NOTHING else. Resume snippet: ${resumeText.substring(0, 1000)}` }],
+            model: 'llama-3.1-8b-instant',
+            temperature: 0.1,
+          });
+          searchQuery = result.choices[0]?.message?.content?.trim() || searchQuery;
+        } catch(e) {
+          console.log("Groq extraction failed, using fallback regex...");
+          // Fallback: try to find common titles or just take the first few lines
+          const firstLines = resumeText.substring(0, 500).split('\n');
+          for (let line of firstLines) {
+            if (line.trim().length > 3 && line.trim().length < 30) {
+              searchQuery = line.trim();
+              break;
+            }
+          }
+        }
       }
 
       // Phase 2: Fetch real jobs live from RapidAPI JSearch
       try {
-        const jsearchRes = await axios.get('https://jsearch.p.rapidapi.com/search', {
-          params: { query: searchQuery, num_pages: 1 },
+        console.log(`Searching JSearch for: "${searchQuery}"`);
+        console.log(`Using RapidAPI Key: ${process.env.RAPIDAPI_KEY ? process.env.RAPIDAPI_KEY.substring(0, 6) + '...' : 'MISSING'}`);
+        
+        const response = await axios.get('https://jsearch.p.rapidapi.com/search', {
+          params: {
+            query: searchQuery + ' jobs',
+            num_pages: '1'
+          },
           headers: {
             'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
             'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
-          }
+          },
+          timeout: 15000
         });
-        
-        jobs = jsearchRes.data.data.slice(0, 5).map(job => ({
-          _id: job.job_id || Math.random().toString(),
-          title: job.job_title,
-          company: job.employer_name,
-          description: job.job_description ? (job.job_description.substring(0, 180) + '...') : '',
-          link: job.job_apply_link || job.job_google_link || '#',
-          matchScore: Math.floor(Math.random() * 20) + 75 // Real AI overlap score algorithm can be injected here
-        }));
+
+        const rawJobs = response.data?.data || [];
+        console.log(`JSearch returned ${rawJobs.length} jobs.`);
+
+        if (rawJobs.length > 0) {
+          jobs = rawJobs.slice(0, 5).map(job => {
+            const bestLink = job.job_apply_link || 
+                             job.job_google_link || 
+                             (job.job_highlights?.how_to_apply) || 
+                             "#";
+
+            return {
+              _id: job.job_id || Math.random().toString(),
+              title: job.job_title,
+              company: job.employer_name,
+              description: job.job_description ? (job.job_description.substring(0, 180) + '...') : '',
+              link: bestLink,
+              matchScore: Math.floor(Math.random() * 20) + 75 
+            };
+          });
+        }
       } catch (err) {
-        console.error("JSearch API Error:", err.message);
+        const detail = err.response ? `Status ${err.response.status}: ${JSON.stringify(err.response.data)}` : err.message;
+        console.error("JSearch API Error:", detail);
       }
     }
     

@@ -1,16 +1,16 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export const analyzeResumeMatch = async (resumeText, jobDescription) => {
-  if (!genAI) {
+  if (!groq) {
     return {
       match_percentage: Math.floor(Math.random() * 40) + 50,
       matching_keywords: ['JavaScript', 'React', 'Frontend'],
       missing_keywords: ['Node.js', 'MongoDB', 'AWS'],
-      summary: "This is a mock summary because the Gemini API key is missing. Please add your key to the .env file to see real results."
+      summary: "This is a mock summary because the Groq API key is missing. Please add your key to the .env file to see real results."
     };
   }
 
@@ -38,23 +38,29 @@ Output ONLY valid JSON format exactly like this, without any markdown formatting
 }`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(text);
+    const result = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    });
+    
+    const responseText = result.choices[0]?.message?.content || "{}";
+    
+    return JSON.parse(responseText);
   } catch (error) {
-    console.error("Gemini API Error (Analysis):", error.message);
+    console.error("Groq API Error (Analysis):", error.message);
     return {
       match_percentage: Math.floor(Math.random() * 40) + 50,
       matching_keywords: ['JavaScript', 'React', 'Frontend'],
       missing_keywords: ['Node.js', 'MongoDB', 'AWS'],
-      summary: "Gemini AI check failed. The application gracefully fell back to displaying these mock AI results so you can continue testing the UI!"
+      summary: "Groq AI check failed (likely rate limit or network issue). Displaying mock results so you can continue testing the UI!"
     };
   }
 };
 
 export const suggestKeywords = async (resumeText, jobDescription) => {
-  if (!genAI) {
+  if (!groq) {
     return { 
       important_keywords: ['React', 'Node.js', 'MongoDB'], 
       missing_keywords: ['Node.js', 'MongoDB'], 
@@ -84,12 +90,17 @@ Return ONLY valid JSON format exactly like this, without any markdown formatting
 }`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(text);
+    const result = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    });
+
+    const responseText = result.choices[0]?.message?.content || "{}";
+    return JSON.parse(responseText);
   } catch (error) {
-    console.error("Gemini API Error (Keywords):", error.message);
+    console.error("Groq API Error (Keywords):", error.message);
     return { 
       important_keywords: ['React', 'Node.js', 'MongoDB'], 
       missing_keywords: ['Node.js', 'MongoDB'], 

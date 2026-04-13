@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { UploadCloud, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 export default function ResumeUpload({ onUploadSuccess }) {
   const [isUploading, setIsUploading] = useState(false);
@@ -19,7 +20,7 @@ export default function ResumeUpload({ onUploadSuccess }) {
     formData.append('resume', file);
 
     try {
-      const { data } = await axios.post('http://localhost:5000/api/upload', formData);
+      const { data } = await axios.post(`${API_URL}/api/upload`, formData);
       toast.success('Resume parsed successfully!');
       onUploadSuccess(data.text);
     } catch (err) {

@@ -2,13 +2,14 @@ import React from 'react';
 import { Briefcase, ExternalLink, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 export default function JobRecommendations({ jobs }) {
   if (!jobs || jobs.length === 0) return null;
 
   const handleApply = async (jobId, matchScore) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/apply', { jobId, matchScore });
+      const response = await axios.post(`${API_URL}/api/apply`, { jobId, matchScore });
       toast.success(response.data.message || 'Applied successfully!');
     } catch {
       toast.error('Failed to apply. Check server.');

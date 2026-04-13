@@ -4,6 +4,7 @@ import { Zap, Loader2, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 import ResumeUpload from '../components/ResumeUpload';
 // Placedholders for next components
@@ -31,7 +32,7 @@ export default function DashboardPage() {
     
     try {
       // Analyze current ATS match
-      const analyzeRes = await axios.post('http://localhost:5000/api/analyze', {
+      const analyzeRes = await axios.post(`${API_URL}/api/analyze`, {
         resumeText,
         jobDescription
       });
@@ -40,7 +41,7 @@ export default function DashboardPage() {
       setKeywordResult(analyzeRes.data.keywordSuggestions);
 
       // Fetch curated job recommendations
-      const recRes = await axios.post('http://localhost:5000/api/jobs/recommend', {
+      const recRes = await axios.post(`${API_URL}/api/jobs/recommend`, {
         resumeText
       });
       setRecommendations(recRes.data.recommendations);
